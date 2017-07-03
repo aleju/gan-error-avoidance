@@ -1,5 +1,5 @@
 commands.txt
-perception_scores/*
+perception-scores/*
 images/sample_real_images/*
 g_lis/calculate_perceptual_scores.py
 *.py~
