@@ -64,17 +64,17 @@ R-separate correcting artifacts, before/after applying the model (2.5k batches f
 Training on CelebA at 160x160 with one LIS module. This seems to produce more errors than 80x80 with one module.
 The video shows faces generated from the original noise vectors (each left) and the same noise vectors after they were manipulated by the LIS module.
 
-[![Training on CelebA 160x160 before after](images/videos/celeba_160x160_before_after.jpg)](http://www.youtube.com/watch?v=SkC76XoYOrs)
+[![Training on CelebA 160x160 before after](images/videos/glis_celeba_160x160_before_after.jpg)](http://www.youtube.com/watch?v=SkC76XoYOrs)
 
 
 Same training as above, but this time only the second image of each pair is shown (i.e. only with applied LIS module).
 
-[![Training on CelebA 160x160 after](images/videos/celeba_160x160_only_after.jpg)](http://www.youtube.com/watch?v=gT71geKc-cY)
+[![Training on CelebA 160x160 after](images/videos/glis_celeba_160x160_only_after.jpg)](http://www.youtube.com/watch?v=gT71geKc-cY)
 
 
 Similar to the previous video, but training was done on the 10kcats datasets at 64x64 with 3 LIS modules (showing the results of the last module).
 
-[![Training on 10kcats 160x160 after](images/videos/10kcats_160x160_only_after.jpg)](http://www.youtube.com/watch?v=16PP68-onwQ)
+[![Training on 10kcats 160x160 after](images/videos/glis_10kcats_160x160_only_after.jpg)](http://www.youtube.com/watch?v=16PP68-onwQ)
 
 
 # Dependencies
