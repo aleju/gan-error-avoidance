@@ -1,6 +1,6 @@
 # About
 
-This repository contains code for the paper "TODO".
+This repository contains code for the paper "Learning to Avoid Errors in GANs by Manipulating Input Spaces".
 The basic idea of the paper is to distort the input space (i.e. the noise vectors) in a way that the image quality is improved.
 More intuitively, the generator is trained to understand its own weaknesses and allowed to simply evade input vectors that would result in bad quality -- though it is punished whenever it does that.
 The paper introduces LIS modules, which consist of residual fully connected layers and are placed at the beginning of the generator.
@@ -174,4 +174,3 @@ Then sample images using
 python g_lis/sample_images.py --image_size 80 --code_size 256 --norm weight --r_iterations 1 --spatial_dropout_r 0.1 --load_path_g /path/to/checkpoints/exp01/net_archive/last_gen.pt --load_path_r /path/to/checkpoints/r-exp01/net_archive/2500_r.pt --save_path /path/to/outputs/exp01/sampled_images_r/
 ```
 This saves images to `/path/to/outputs/exp01/sampled_images_r/`.
-
