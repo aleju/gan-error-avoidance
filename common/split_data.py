@@ -1,3 +1,10 @@
+"""Script to split data into train/test. This is copied from the WN-GAN
+repository and here only needed for technical reasons.
+
+Example:
+	python split_data.py --dataset folder \
+		--dataroot /path/to/datasets/celeba --running 1 --final 1
+"""
 import argparse
 import torch
 import torchvision.datasets as datasets

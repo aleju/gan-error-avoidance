@@ -1,3 +1,15 @@
+"""Script to plot approximated probability distributions of each component
+of noise vectors. For the initial inputs, these should simply match N(0,1),
+as they were sampled from that. After LIS modules, the probability
+distributions are expected to change.
+You must have trained a G-LIS to use this.
+
+Example:
+    python sample_density.py --image_size 80 --code_size 256 --norm weight \
+        --r_iterations 1 \
+        --load_path_g /path/to/checkpoints/exp01/net_archive/last_gen.pt \
+        --save_path /path/to/checkpoints/exp01/density/
+"""
 from __future__ import print_function, division
 
 import sys
@@ -59,13 +71,13 @@ def main():
         help = 'path of G to use')
 
     parser.add_argument('--save_path', required = True,
-        help = 'Path to save sampled images to')
+        help = 'path to save sampled images to')
 
     parser.add_argument('--r_iterations', type = int, default = 3,
-        help = 'How often to execute the reverse projection via R')
+        help = 'how many LIS modules to use in G')
 
     parser.add_argument('--nb_points', type = int, default = 500000,
-        help = 'Number of points from which to estimate densities')
+        help = 'number of points from which to estimate densities')
 
     opt = parser.parse_args()
     print(opt)
@@ -77,10 +89,6 @@ def main():
         opt.width = opt.image_size
     else:
         raise ValueError('must specify valid image size')
-
-    #if (opt.vis_row <= 0) or (opt.vis_col <= 0):
-    #   opt.vis_row = opt.vis_size
-    #   opt.vis_col = opt.vis_size
 
     if opt.nlayer < 0:
         opt.nlayer = 0
@@ -128,7 +136,6 @@ def main():
                 ax.plot(xx, yy, c="red", label="after %d LIS modules" % (r_idx,))
             ax.set_xlim(-6, 6)
             ax.set_ylim(0, 0.06)
-            #ax.legend()
             fig.savefig(os.path.join(opt.save_path, 'density_plots', 'density_r%02d_v%03d.jpg' % (r_idx, v_idx,)), bbox_inches="tight")
             plt.close()
 
@@ -179,7 +186,6 @@ def generate_codes_by_r(gen, code, n_execute_lis_layers, batch_size):
 def points_to_line(values, nb_bins=100):
     print("[points_to_line]", values.shape)
     heights, bins = np.histogram(values, bins=nb_bins)
-    #print(values.shape, heights, bins)
 
     # Normalize
     heights = heights / float(sum(heights))

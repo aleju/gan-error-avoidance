@@ -1,3 +1,15 @@
+"""Code to calculate inception scores. Don't try to understand how the code
+works. Lots of background processes to deal with tensorflow/pytorch running
+side-by-side, forcing them to release GPU RAM and forcing python to release
+normal RAM.
+
+Example:
+    python calculate_inception_scores.py --dataset folder \
+        --dataroot /path/to/datasets/celeba --crop_size 160 --image_size 80 \
+        --code_size 256 --norm weight --r_iterations 3 \
+        --inception_images 50000 \
+        --load_path /path/to/checkpoints/exp01
+"""
 from __future__ import print_function
 
 import sys
@@ -93,15 +105,11 @@ def main():
         help = 'load to continue existing experiment')
 
     parser.add_argument('--spatial_dropout_r',  type = float,   default = 0,
-        help = 'Spatial dropout applied to R')
+        help = 'spatial dropout applied to R')
 
-    #parser.add_argument('--nb_chunks', type = int,   default = 1,
-    #    help = 'number of image chunks to calculate inception score on')
     parser.add_argument('--nb_splits', type = int,   default = 10,
         help = 'number of image chunks to calculate inception score on')
 
-    #parser.add_argument('--chunk_size', type = int,   default = 156,
-    #    help = 'number of image chunks to calculate inception score on')
     parser.add_argument('--inception_images', type = int,   default = 50000,
         help = 'number of image to calculate inception score on')
 
@@ -109,19 +117,16 @@ def main():
         help = 'number of image to calculate inception score on')
 
     parser.add_argument('--r_iterations', type = int, default = 3,
-        help = 'How often to execute the reverse projection via R')
+        help = 'how many LIS modules to use in G')
 
     parser.add_argument('--every_nth_checkpoint', type = int, default = 1,
-        help = 'Calculate score only for every nth checkpoint')
+        help = 'calculate score only for every nth checkpoint')
 
     parser.add_argument('--augment', default = 'none',
-        help = 'Set of augmentations to run on the input images')
+        help = 'set of augmentations to run on the input images')
 
     opt = parser.parse_args()
     print(opt)
-
-    #opt.chunk_size = int(math.ceil(opt.inception_images / (opt.batch_size * opt.nb_chunks)))
-    #print("Chunk Size:", opt.chunk_size)
 
     opt.split_size = int(math.ceil(opt.inception_images / opt.nb_splits))
     opt.nb_batches_per_split = int(math.ceil(opt.split_size / opt.batch_size))
@@ -183,9 +188,6 @@ def main():
 
     # only last files currently
     g_fps = g_fps[-1:]
-
-    #if opt.every_nth_checkpoint > 1:
-    #    g_fps = g_fps[::opt.every_nth_checkpoint]
 
     with open(os.path.join(opt.load_path, "inception-scores.csv"), "w") as f:
         f.write("#nth_file,batch,g0_mean,g0_std")

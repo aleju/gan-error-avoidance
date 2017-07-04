@@ -1,3 +1,5 @@
+"""Script to export the history of loss values gathered during an experiment
+to a csv file."""
 from __future__ import print_function, division
 
 import sys
@@ -22,19 +24,19 @@ def main():
         help = 'path of to the state file containing the history')
 
     parser.add_argument('--save_path', required=True,
-        help = 'Path to save the csv file to')
+        help = 'path to save the csv file to')
 
     parser.add_argument('--start', type=int, default=0,
-        help = 'Row index to start at (inclusive)')
+        help = 'row index to start at (inclusive)')
 
     parser.add_argument('--end', type=int, default=-1,
-        help = 'Row index to end at (exclusive)')
+        help = 'row index to end at (exclusive)')
 
     parser.add_argument('--subsample', type=int, default=1,
-        help = 'Output only every nth row')
+        help = 'output only every nth row')
 
     parser.add_argument('--kernel_size', type=int, default=101,
-        help = 'Kernel size of used filter')
+        help = 'kernel size of used filter')
 
     opt = parser.parse_args()
     print(opt)

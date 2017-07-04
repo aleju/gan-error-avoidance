@@ -1,3 +1,17 @@
+"""Code to generate t-SNE embeddings and plots of noise vectors, before
+and after applying LIS modules.
+This requires a trained G-LIS.
+Note that t-SNE often stopped quite early, so you might not always have
+success. Even successful plots tend to not show much change compared to
+components sampled from N(0,1). Increasing the learning rate of t-SNE seems
+to help sometimes.
+
+Example:
+    python sample_tsne.py --image_size 80 --code_size 256 --norm weight \
+        --r_iterations 1 \
+        --load_path_g /path/to/checkpoints/exp01/net_archive/last_gen.pt \
+        --save_path /path/to/outputs/exp01/tsne/
+"""
 from __future__ import print_function, division
 
 import sys
@@ -22,7 +36,7 @@ import time
 import random
 from sklearn.manifold import TSNE
 #from MulticoreTSNE import MulticoreTSNE as TSNE
-from sklearn.decomposition import PCA
+#from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_style('whitegrid')
@@ -61,13 +75,13 @@ def main():
         help = 'path of G to use')
 
     parser.add_argument('--save_path', required = True,
-        help = 'Path to save sampled images to')
+        help = 'path to save sampled images to')
 
     parser.add_argument('--r_iterations', type = int, default = 3,
-        help = 'How often to execute the reverse projection via R')
+        help = 'how many LIS modules to use.')
 
     parser.add_argument('--nb_points', type = int, default = 17500,
-        help = 'Number of points to embed and plot via TSNE')
+        help = 'number of points to embed and plot via t-SNE')
 
     opt = parser.parse_args()
     print(opt)

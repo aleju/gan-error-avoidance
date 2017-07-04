@@ -1,3 +1,18 @@
+"""Script to train a GAN.
+
+Examples:
+	python main.py --dataset folder --dataroot /path/to/datasets/celeba \
+		--crop_size 160 --image_size 80 --code_size 256 --norm weight \
+		--lr 0.00002 --r_iterations 1 --niter 300000 \
+		--save_path /path/to/checkpoints/exp01 \
+		#--load_path /path/to/checkpoints/exp01
+
+	Trains a network on CelebA with learning rate 0.00002 for 300k iterations
+	to generate 80x80 images. Saves checkpoints and other stuff to
+	/path/to/checkpoints/exp01. Uncomment the load_path part to continue a
+	previous experiment.
+	You MUST have run common/split_data.py on the dataset before training.
+"""
 from __future__ import print_function, division
 
 import sys
@@ -125,25 +140,25 @@ parser.add_argument('--spatial_dropout_r',  type = float,   default = 0,
 	help = 'Spatial dropout applied to R')
 
 parser.add_argument('--r_iterations', type = int, default = 3,
-	help = 'How often to execute the reverse projection via R')
+	help = 'how many LIS modules to use in G')
 
 parser.add_argument('--always_train_all', action='store_true', default=False,
-	help = 'Whether to always train with all LIS modules')
+	help = 'whether to always train with all LIS modules')
 
 parser.add_argument('--load_tolerant', action='store_true', default=False,
-	help = 'Whether to load state dict for G in a tolerant way, i.e. will not complain upon mismatches.')
+	help = 'whether to load state dict for G in a tolerant way, i.e. will not complain upon mismatches')
 
 parser.add_argument('--nb_cache_total',  type = int,   default = 0,
-	help = 'Size of the dataset cache')
+	help = 'size of the dataset cache')
 
 parser.add_argument('--nb_cache_lists',  type = int,   default = 1,
-	help = 'Number of caches to use, a value of N means that a specific image can be cached in up to N different versions (i.e. crops)')
+	help = 'number of caches to use, a value of N means that a specific image can be cached in up to N different versions (i.e. crops)')
 
 parser.add_argument('--cache_p_drop',  type = float,   default = 0.1,
-	help = 'Chance to drop a data entry from the cache')
+	help = 'chance to drop a data entry from the cache')
 
 parser.add_argument('--augment',  default='none',
-	help = 'Name of augmentation set to use.')
+	help = 'name of augmentation set to use')
 
 opt = parser.parse_args()
 print(opt)
@@ -269,17 +284,13 @@ else:
 						self.nb_cached_total -= 1
 					else:
 						return cache_list[k]
-				#print("no cache hit for ", k, len(self.cache), sorted(self.cache.keys()))
 				el = dataset[k][0]
 				if self.nb_cached_total < self.nb_cache_total:
 					cache_list[k] = el
 					self.nb_cached_total += 1
-				#if random.random() < 0.05:
-				#	print("cached entries", len(self.cache))
 				return el
 		get_data = CachedDataset(opt.nb_cache_total, opt.nb_cache_lists, opt.cache_p_drop)
 
-#gen = build_generator(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm)
 gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations)
 print(gen)
 gen.cuda()
@@ -355,8 +366,6 @@ def visualize_real(images, filename):
 
 def visualize(code, filename, filename_r, filename_all):
 	gen.eval()
-	#generated = torch.Tensor(code.size(0), 3, opt.height, opt.width)
-	#generated_r = [torch.Tensor(code.size(0), 3, opt.height, opt.width) for _ in range(opt.r_iterations)]
 	generated_by_riter = [[] for _ in range(1+opt.r_iterations)]
 
 	for i in xrange((code.size(0) - 1) // opt.batch_size + 1):
@@ -508,6 +517,7 @@ else:
 		filename=os.path.join(opt.save_path, 'real_images.jpg')
 	)
 
+	# train for --niter batches
 	while current_iter < opt.niter:
 		time_start = time.time()
 
@@ -524,7 +534,7 @@ else:
 
 		dis.zero_grad()
 
-		# D on real data
+		# train D on real data
 		true_sample = torch.Tensor(opt.batch_size, 3, opt.height, opt.width)
 		time_sample_sum = 0
 		for i in range(opt.batch_size):
@@ -532,19 +542,17 @@ else:
 			true_sample[i].copy_(get_data(train_index[index_shuffle[current_sample]]))
 			time_sample_end = time.time()
 			time_sample_sum += (time_sample_end - time_sample_start)
-			#print("samplet %.4fs" % (time_sample_end - time_sample_start,))
 			current_sample = current_sample + 1
 			if current_sample == train_index.size(0):
 				current_sample = 0
 				index_shuffle = torch.randperm(train_index.size(0))
-		#print("time_sample_sum %.4fs" % (time_sample_sum,))
 		true_sample = Variable(true_sample.cuda())
 		loss_d_real = lossfunc(dis(true_sample), ones)
 		loss_d_real.backward()
 		loss_values_d_real.append(loss_d_real.data[0])
 		del true_sample
 
-		# D on fake data (G)
+		# train D on fake data (G)
 		rand_code = Variable(torch.randn(opt.batch_size, opt.code_size).cuda(), volatile=True)
 		generated, lis_layers = gen(rand_code, n_execute_lis_layers=None if not opt.always_train_all else opr.r_iterations)
 		generated = Variable(generated.data)
@@ -554,7 +562,7 @@ else:
 
 		dis_opt.step()
 
-		# G
+		# train G
 		for param in dis.parameters():
 			param.requires_grad = False
 		gen.zero_grad()
@@ -575,6 +583,8 @@ else:
 
 		gen_opt.step()
 
+		# postprocess batch
+		# save losses, plot/visualize, print message, save network
 		current_loss_record[0] = loss_values_d_real[0] if loss_values_d_real[0] is not None else 0
 		current_loss_record[1] = loss_values_d_fake[0] if loss_values_d_fake[0] is not None else 0
 		current_loss_record[2] = loss_values_g[0] if loss_values_g[0] is not None else 0

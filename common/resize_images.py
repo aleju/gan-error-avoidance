@@ -1,3 +1,14 @@
+"""Script to convert images to squared ones by zero-padding and then
+resize them to a given size.
+This script is only recommended to use if your dataset does not contain
+squared images. Resizing can be done automatically by the other training
+scripts.
+
+Example:
+    python resize_images.py --image_size 128 \
+        --load_path /path/to/images
+        --save_path /path/to/output
+"""
 from __future__ import print_function, division
 
 import sys
@@ -26,7 +37,6 @@ def main():
     print(args)
 
     print("Loading filepaths...")
-    #fps = glob.glob(args.load_path)
     fps = get_images(args.load_path)
 
     print("Resizing...")
@@ -38,8 +48,6 @@ def main():
         img = ndimage.imread(fp, mode="RGB")
         img_sq = make_square(img)
         img_sq_rs = misc.imresize(img_sq, (args.image_size, args.image_size))
-        #misc.imshow(img)
-        #misc.imshow(img_sq_rs)
         misc.imsave(out_fp, img_sq_rs)
 
 def get_images(dir_path):

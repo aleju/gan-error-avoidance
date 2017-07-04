@@ -1,3 +1,17 @@
+"""Script to train an R-separate model on a previously trained
+G-LIS (does not have to contain any LIS modules).
+Example:
+	python train_r.py --dataset folder --dataroot /path/to/datasets/celeba \
+		--crop_size 160 --image_size 80 --code_size 256 --norm weight \
+		--r_iterations 1 --lr 0.00005 --niter 2500 --spatial_dropout_r 0.1 \
+		--save_path_r /path/to/checkpoints/r-exp01 \
+		--load_path /path/to/checkpoints/exp01
+
+	Trains an R-separate based on a previous training of a G-LIS with 1 LIS
+	modules which was saved to /path/to/checkpoints/exp01.
+	R-separate is trained for 2.5k batches at learning rate 0.00005 and
+	spatial dropout of 10%. It is saved to /path/to/checkpoints/r-exp01.
+"""
 from __future__ import print_function
 
 import sys
@@ -20,7 +34,6 @@ import imgaug as ia
 from scipy import misc
 
 from common import plotting
-#from inception_score import get_inception_score
 
 from common.model import *
 
@@ -117,13 +130,13 @@ parser.add_argument('--output_scale',       action = 'store_true', default = Fal
 	help = 'save x*2-1 instead of x when saving image')
 
 parser.add_argument('--net',                              default = 'last',
-	help = 'Network prefix to use for loading G.')
+	help = 'network prefix to use for loading G')
 
 parser.add_argument('--spatial_dropout_r',  type = float,   default = 0,
-	help = 'Spatial dropout applied to R')
+	help = 'spatial dropout applied to R')
 
 parser.add_argument('--r_iterations', type = int, default = 3,
-	help = 'How often to execute the reverse projection via R')
+	help = 'how many LIS modules to use in G')
 
 opt = parser.parse_args()
 print(opt)
@@ -186,7 +199,6 @@ if opt.final_test:
 else:
 	test_index = data_index['running_test']
 
-#gen = build_generator(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm)
 gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations)
 print(gen)
 gen.cuda()
@@ -209,16 +221,13 @@ if not opt.final_test:
 	else:
 		lossfunc = nn.BCELoss()
 	lossfunc_r = nn.MSELoss()
-	#gen_opt = optim.RMSprop(gen.parameters(), lr = opt.lr, eps = 1e-6, alpha = 0.9)
 	r_opt = optim.RMSprop(r.parameters(), lr = opt.lr, eps = 1e-6, alpha = 0.9)
-	#dis_opt = optim.RMSprop(dis.parameters(), lr = opt.lr, eps = 1e-6, alpha = 0.9)
 
 history = plotting.History()
 history.add_group("loss-r", ["train"], increasing=False)
 history.add_group("loss-stage1", ["train"], increasing=False)
 history.add_group("loss-stage2", ["train"], increasing=True)
 history.add_group("loss-stage-mix", ["train-stage1", "train-stage2"], increasing=True)
-#history.add_group("inception-scores", ["train-stage1", "train-stage2"], increasing=False)
 
 state = {}
 
@@ -226,17 +235,7 @@ def load_state(path, prefix, gen_only = False):
 	gen.load_state_dict(torch.load(os.path.join(opt.load_path, 'net_archive', '{0}_gen.pt'.format(prefix))))
 
 	if not gen_only:
-		#gen_opt.load_state_dict(torch.load(os.path.join(opt.load_path, 'net_archive', '{0}_gen_opt.pt'.format(prefix))))
 		dis.load_state_dict(torch.load(os.path.join(opt.load_path, 'net_archive', '{0}_dis.pt'.format(prefix))))
-		#dis_opt.load_state_dict(torch.load(os.path.join(opt.load_path, 'net_archive', '{0}_dis_opt.pt'.format(prefix))))
-		#saved_state = torch.load(os.path.join(opt.load_path, 'net_archive', '{0}_state.pt'.format(prefix)))
-		#if "from_r_training" not in saved_state or saved_state["from_r_training"] == False:
-		#	saved_state["index_shuffle"] = torch.randperm(train_index.size(0))
-		#	saved_state["current_iter"] = 0
-		#	saved_state["best_iter"] = 0
-		#	saved_state["min_loss"] = 1e100
-		#	saved_state["current_sample"] = 0
-		#state.update(saved_state)
 
 def load_state_r(path, prefix):
 	global history
@@ -252,12 +251,6 @@ def load_state_r(path, prefix):
 		r_opt.load_state_dict(r_opt_fp)
 
 def save_state(path, prefix):
-	#torch.save(gen.state_dict(), os.path.join(opt.save_path, 'net_archive', '{0}_gen.pt'.format(prefix)))
-	#torch.save(gen_opt.state_dict(), os.path.join(opt.save_path, 'net_archive', '{0}_gen_opt.pt'.format(prefix)))
-
-	#torch.save(dis.state_dict(), os.path.join(opt.save_path, 'net_archive', '{0}_dis.pt'.format(prefix)))
-	#torch.save(dis_opt.state_dict(), os.path.join(opt.save_path, 'net_archive', '{0}_dis_opt.pt'.format(prefix)))
-
 	torch.save(r.state_dict(), os.path.join(opt.save_path_r, 'net_archive', '{0}_r.pt'.format(prefix)))
 	torch.save(r_opt.state_dict(), os.path.join(opt.save_path_r, 'net_archive', '{0}_r_opt.pt'.format(prefix)))
 
@@ -268,7 +261,6 @@ def save_state(path, prefix):
 		'min_loss' : min_loss,
 		'current_sample' : current_sample,
 		'history' : history.to_string()
-		#'from_r_training': True
 	})
 	torch.save(state, os.path.join(opt.save_path_r, 'net_archive', '{0}_state.pt'.format(prefix)))
 
@@ -358,154 +350,103 @@ def makedirs():
 	for sub_folder in ('samples', 'samples_r', 'samples_both', 'running_test', 'net_archive', 'log'):
 		if not os.path.exists(os.path.join(opt.save_path_r, sub_folder)):
 			os.mkdir(os.path.join(opt.save_path_r, sub_folder))
-if True:
-	load_state(opt.load_path, opt.net)
 
-	if opt.load_path_r is not None:
-		if opt.save_path_r is None:
-			opt.save_path_r = opt.load_path_r
-		if opt.load_path_r != opt.save_path_r:
-			makedirs()
-		vis_code = torch.load(os.path.join(opt.load_path_r, 'samples', 'vis_code.pt')).cuda()
+load_state(opt.load_path, opt.net)
 
-		load_state_r(opt.load_path_r, 'last')
-		index_shuffle = state['index_shuffle']
-		current_iter = state['current_iter']
-		best_iter = state['best_iter']
-		min_loss = state['min_loss']
-		current_sample = state['current_sample']
-	else:
-		if opt.save_path_r is None:
-			raise ValueError('must specify save path if not continue training')
+if opt.load_path_r is not None:
+	if opt.save_path_r is None:
+		opt.save_path_r = opt.load_path_r
+	if opt.load_path_r != opt.save_path_r:
 		makedirs()
-		vis_code = torch.randn(opt.vis_row * opt.vis_col, opt.code_size).cuda()
-		torch.save(vis_code, os.path.join(opt.save_path_r, 'samples', 'vis_code.pt'))
+	vis_code = torch.load(os.path.join(opt.load_path_r, 'samples', 'vis_code.pt')).cuda()
 
-		index_shuffle = torch.randperm(train_index.size(0))
-		current_iter = 0
-		best_iter = 0
-		min_loss = 1e100
-		current_sample = 0
+	load_state_r(opt.load_path_r, 'last')
+	index_shuffle = state['index_shuffle']
+	current_iter = state['current_iter']
+	best_iter = state['best_iter']
+	min_loss = state['min_loss']
+	current_sample = state['current_sample']
+else:
+	if opt.save_path_r is None:
+		raise ValueError('must specify save path if not continue training')
+	makedirs()
+	vis_code = torch.randn(opt.vis_row * opt.vis_col, opt.code_size).cuda()
+	torch.save(vis_code, os.path.join(opt.save_path_r, 'samples', 'vis_code.pt'))
 
-		vis_target = torch.Tensor(min(test_index.size(0), opt.vis_row * opt.vis_col), 3, opt.height, opt.width)
-		for i in range(vis_target.size(0)):
-			vis_target[i].copy_(get_data(test_index[i]))
-		if opt.output_scale:
-			torchvision.utils.save_image(vis_target * 2 - 1, os.path.join(opt.save_path_r, 'running_test', 'target.jpg'), opt.vis_row)
-		else:
-			torchvision.utils.save_image(vis_target, os.path.join(opt.save_path_r, 'running_test', 'target.jpg'), opt.vis_row)
+	index_shuffle = torch.randperm(train_index.size(0))
+	current_iter = 0
+	best_iter = 0
+	min_loss = 1e100
+	current_sample = 0
 
-	ones = Variable(torch.ones(opt.batch_size, 1).cuda())
-	zeros = Variable(torch.zeros(opt.batch_size, 1).cuda())
+	vis_target = torch.Tensor(min(test_index.size(0), opt.vis_row * opt.vis_col), 3, opt.height, opt.width)
+	for i in range(vis_target.size(0)):
+		vis_target[i].copy_(get_data(test_index[i]))
+	if opt.output_scale:
+		torchvision.utils.save_image(vis_target * 2 - 1, os.path.join(opt.save_path_r, 'running_test', 'target.jpg'), opt.vis_row)
+	else:
+		torchvision.utils.save_image(vis_target, os.path.join(opt.save_path_r, 'running_test', 'target.jpg'), opt.vis_row)
 
-	loss_record = torch.zeros(opt.test_interval, 3)
+ones = Variable(torch.ones(opt.batch_size, 1).cuda())
+zeros = Variable(torch.zeros(opt.batch_size, 1).cuda())
 
-	visualize(
-		vis_code,
-		filename=os.path.join(opt.save_path_r, 'samples', 'sample_{0}.jpg'.format(current_iter)),
-		filename_r=os.path.join(opt.save_path_r, 'samples_r', 'sample_{0}_r.jpg'.format(current_iter)),
-		filename_both=os.path.join(opt.save_path_r, 'samples_both', 'sample_{0}_both.jpg'.format(current_iter))
+loss_record = torch.zeros(opt.test_interval, 3)
+
+visualize(
+	vis_code,
+	filename=os.path.join(opt.save_path_r, 'samples', 'sample_{0}.jpg'.format(current_iter)),
+	filename_r=os.path.join(opt.save_path_r, 'samples_r', 'sample_{0}_r.jpg'.format(current_iter)),
+	filename_both=os.path.join(opt.save_path_r, 'samples_both', 'sample_{0}_both.jpg'.format(current_iter))
+)
+
+# train for --niter batches
+while current_iter < opt.niter:
+	current_iter = current_iter + 1
+	current_loss_record = loss_record[(current_iter - 1) % opt.test_interval]
+
+	rand_code = Variable(torch.randn(opt.batch_size, opt.code_size).cuda())
+	generated, _ = gen(rand_code, n_execute_lis_layers=opt.r_iterations)
+
+	# loss D orig samples
+	loss = lossfunc(
+		dis(Variable(generated.data, volatile=True)),
+		zeros
 	)
+	current_loss_record[0] = loss.data[0]
+	generated.detach()
 
-	while current_iter < opt.niter:
-		current_iter = current_iter + 1
-		#print('Iteration {0}:'.format(current_iter))
-		current_loss_record = loss_record[(current_iter - 1) % opt.test_interval]
+	r.zero_grad()
 
-		"""
-		for param in dis.parameters():
-			param.requires_grad = True
-		dis.zero_grad()
-		"""
+	# train R
+	rand_code_fixed = r(generated)
+	loss = lossfunc_r(rand_code_fixed, rand_code)
+	current_loss_record[1] = loss.data[0]
+	loss.backward()
+	r_opt.step()
 
-		"""
-		true_sample = torch.Tensor(opt.batch_size, 3, opt.height, opt.width)
-		for i in range(opt.batch_size):
-			true_sample[i].copy_(get_data(train_index[index_shuffle[current_sample]]))
-			current_sample = current_sample + 1
-			if current_sample == train_index.size(0):
-				current_sample = 0
-				index_shuffle = torch.randperm(train_index.size(0))
-		true_sample = Variable(true_sample.cuda())
-		loss = lossfunc(dis(true_sample), ones)
-		current_loss_record[0] = loss.data[0]
-		loss.backward()
-		del true_sample
-		"""
+	# loss D error-fixed samples
+	generated_fixed, _ = gen(rand_code_fixed, n_execute_lis_layers=opt.r_iterations)
+	loss = lossfunc(
+		dis(Variable(generated_fixed.data, volatile=True)),
+		zeros
+	)
+	current_loss_record[2] = loss.data[0]
 
-		rand_code = Variable(torch.randn(opt.batch_size, opt.code_size).cuda())
-		generated, _ = gen(rand_code, n_execute_lis_layers=opt.r_iterations)
+	history.add_value("loss-r", "train", current_iter, current_loss_record[1], average=False)
+	history.add_value("loss-stage1", "train", current_iter, current_loss_record[0], average=False)
+	history.add_value("loss-stage2", "train", current_iter, current_loss_record[2], average=False)
+	history.add_value("loss-stage-mix", "train-stage1", current_iter, current_loss_record[0], average=False)
+	history.add_value("loss-stage-mix", "train-stage2", current_iter, current_loss_record[2], average=False)
+	print('{0} | loss: r:{1} dis-stage1:{2} dis-stage2:{3}'.format(current_iter, current_loss_record[1], current_loss_record[0], current_loss_record[2]))
 
-		# loss D orig samples
-		loss = lossfunc(
-			dis(Variable(generated.data, volatile=True)),
-			zeros
+	if current_iter % opt.vis_interval == 0:
+		visualize(
+			vis_code,
+			filename=os.path.join(opt.save_path_r, 'samples', 'sample_{0}.jpg'.format(current_iter)),
+			filename_r=os.path.join(opt.save_path_r, 'samples_r', 'sample_{0}_r.jpg'.format(current_iter)),
+			filename_both=os.path.join(opt.save_path_r, 'samples_both', 'sample_{0}_both.jpg'.format(current_iter))
 		)
-		current_loss_record[0] = loss.data[0]
-		generated.detach()
-		#loss.backward()
+		loss_plotter.plot(history)
 
-		#dis_opt.step()
-
-		#for param in dis.parameters():
-		#	param.requires_grad = False
-		#gen.zero_grad()
-		r.zero_grad()
-
-		# loss R
-		rand_code_fixed = r(generated)
-		loss = lossfunc_r(rand_code_fixed, rand_code)
-		current_loss_record[1] = loss.data[0]
-		loss.backward()
-		r_opt.step()
-
-		# loss D error-fixed samples
-		generated_fixed, _ = gen(rand_code_fixed, n_execute_lis_layers=opt.r_iterations)
-		loss = lossfunc(
-			dis(Variable(generated_fixed.data, volatile=True)),
-			zeros
-		)
-		current_loss_record[2] = loss.data[0]
-
-		history.add_value("loss-r", "train", current_iter, current_loss_record[1], average=False)
-		history.add_value("loss-stage1", "train", current_iter, current_loss_record[0], average=False)
-		history.add_value("loss-stage2", "train", current_iter, current_loss_record[2], average=False)
-		history.add_value("loss-stage-mix", "train-stage1", current_iter, current_loss_record[0], average=False)
-		history.add_value("loss-stage-mix", "train-stage2", current_iter, current_loss_record[2], average=False)
-		print('{0} | loss: r:{1} dis-stage1:{2} dis-stage2:{3}'.format(current_iter, current_loss_record[1], current_loss_record[0], current_loss_record[2]))
-
-		#if current_iter % opt.inception_interval == 0:
-		#	print('Measuring inception scores...')
-		#	score_stage1, score_stage2 = measure_inception_scores(opt.inception_nb_batches)
-		#	print('inception stage1:{0} stage2:{0}'.format(score_stage1, score_stage2))
-		#	history.add_value("inception-scores", "train-stage1", score_stage1)
-		#	history.add_value("inception-scores", "train-stage2", score_stage2)
-
-		if current_iter % opt.vis_interval == 0:
-			visualize(
-				vis_code,
-				filename=os.path.join(opt.save_path_r, 'samples', 'sample_{0}.jpg'.format(current_iter)),
-				filename_r=os.path.join(opt.save_path_r, 'samples_r', 'sample_{0}_r.jpg'.format(current_iter)),
-				filename_both=os.path.join(opt.save_path_r, 'samples_both', 'sample_{0}_both.jpg'.format(current_iter))
-			)
-			loss_plotter.plot(history)
-
-		"""
-		if current_iter % opt.test_interval == 0:
-			print('Testing ...')
-			current_loss = test()
-			log = {
-				'training_loss' : loss_record,
-				'test_loss' : current_loss
-			}
-			torch.save(log, os.path.join(opt.save_path, 'log', 'loss_{0}.pt'.format(current_iter)))
-			if current_loss < min_loss:
-				print('new best network!')
-				min_loss = current_loss
-				best_iter = current_iter
-				save_state(opt.save_path, 'best')
-			save_state(opt.save_path, 'last')
-		"""
-
-		if current_iter % opt.save_interval == 0:
-			save_state(opt.save_path_r, current_iter)
+	if current_iter % opt.save_interval == 0:
+		save_state(opt.save_path_r, current_iter)
