@@ -2,7 +2,10 @@ commands.txt
 perception-scores/*
 images/sample_real_images/*
 g_lis/calculate_perceptual_scores.py
+paper/*
 *.py~
+*.md~
+*.txt~
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
