@@ -138,6 +138,9 @@ parser.add_argument('--spatial_dropout_r',  type = float,   default = 0,
 parser.add_argument('--r_iterations', type = int, default = 3,
 	help = 'how many LIS modules to use in G')
 
+parser.add_argument('--g_upscaling',  default='fractional',
+	help = 'upscaling method to use in G: fractional|nearest|bilinear')
+
 opt = parser.parse_args()
 print(opt)
 
@@ -199,7 +202,7 @@ if opt.final_test:
 else:
 	test_index = data_index['running_test']
 
-gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations)
+gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations, upscaling=opt.g_upscaling)
 print(gen)
 gen.cuda()
 testfunc = nn.MSELoss()

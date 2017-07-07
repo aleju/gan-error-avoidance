@@ -7,7 +7,7 @@ from modules.TPReLU import *
 from modules.View import *
 import random
 
-def build_discriminator(w_in, h_in, f_first, num_down_layers, norm):
+def build_discriminator(w_in, h_in, f_first, num_down_layers, norm, p_dropout):
 	net = nn.Sequential()
 	if (w_in % 2 != 0) or (h_in % 2 != 0):
 		raise ValueError('input width and height must be even numbers')
@@ -48,6 +48,10 @@ def build_discriminator(w_in, h_in, f_first, num_down_layers, norm):
 		f = f * 2
 		w = (w + pad_w * 2) // 2
 		h = (h + pad_h * 2) // 2
+
+	if p_dropout > 0:
+		net.add_module('final.dropout', nn.Dropout(p_dropout))
+
 	if (norm == 'weight') or (norm == 'weight-affine'):
 		net.add_module('final.conv',
 			WeightNormalizedConv2d(f_prev, 1, (h, w)))
@@ -136,7 +140,7 @@ def build_generator(w_out, h_out, f_last, num_up_layers, code_size, norm):
 	return net
 
 class GeneratorLearnedInputSpace(nn.Module):
-	def __init__(self, w_out, h_out, f_last, num_up_layers, code_size, norm, n_lis_layers):
+	def __init__(self, w_out, h_out, f_last, num_up_layers, code_size, norm, n_lis_layers, upscaling):
 		super(GeneratorLearnedInputSpace, self).__init__()
 
 		if (w_out % 2 != 0) or (h_out % 2 != 0):
@@ -219,15 +223,34 @@ class GeneratorLearnedInputSpace(nn.Module):
 		for i in range(num_up_layers - 1):
 			level = num_up_layers - 1 - i
 
-			if (norm == 'weight') or (norm == 'weight-affine'):
+			if upscaling == "fractional":
+				if (norm == 'weight') or (norm == 'weight-affine'):
+					self.conv_layers.append(
+						WeightNormalizedConvTranspose2d(f, f // 2, 4, 2, (1 + pad_h[level], 1 + pad_w[level]),
+							scale = (norm == 'weight-affine'), bias = (norm == 'weight-affine'))
+					)
+				else:
+					self.conv_layers.append(
+						nn.ConvTranspose2d(f, f // 2, 4, 2, (1 + pad_h[level], 1 + pad_w[level]))
+					)
+			elif upscaling == "nearest":
+				self.conv_layers.append(nn.UpsamplingNearest2d(scale_factor=2))
 				self.conv_layers.append(
-					WeightNormalizedConvTranspose2d(f, f // 2, 4, 2, (1 + pad_h[level], 1 + pad_w[level]),
-						scale = (norm == 'weight-affine'), bias = (norm == 'weight-affine'))
+					WeightNormalizedConv2d(
+						f, f // 2, 3, 1, (1 + pad_h[level], 1 + pad_w[level]),
+						scale = (norm == 'weight-affine'), bias = (norm == 'weight-affine')
+					)
+				)
+			elif upscaling == "bilinear":
+				self.conv_layers.append(nn.UpsamplingBilinear2d(scale_factor=2))
+				self.conv_layers.append(
+					WeightNormalizedConv2d(
+						f, f // 2, 3, 1, (1 + pad_h[level], 1 + pad_w[level]),
+						scale = (norm == 'weight-affine'), bias = (norm == 'weight-affine')
+					)
 				)
 			else:
-				self.conv_layers.append(
-					nn.ConvTranspose2d(f, f // 2, 4, 2, (1 + pad_h[level], 1 + pad_w[level]))
-				)
+				raise Exception("Unknown upscaling, must be fractional|nearest|bilinear, got %s" % (upscaling,))
 
 			if norm == 'batch':
 				self.conv_layers.append(nn.BatchNorm2d(f // 2))

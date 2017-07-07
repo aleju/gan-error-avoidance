@@ -28,10 +28,7 @@ import torchvision
 import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 from torch.autograd import Variable
-import os
-import os.path
 import numpy as np
-import imgaug as ia
 from scipy import misc
 import time
 import random
@@ -160,6 +157,12 @@ parser.add_argument('--cache_p_drop',  type = float,   default = 0.1,
 parser.add_argument('--augment',  default='none',
 	help = 'name of augmentation set to use')
 
+parser.add_argument('--g_upscaling',  default='fractional',
+	help = 'upscaling method to use in G: fractional|nearest|bilinear')
+
+parser.add_argument('--d_dropout',  type = float,   default = 0,
+	help = 'dropout probability to use in D before the last layer')
+
 opt = parser.parse_args()
 print(opt)
 
@@ -187,7 +190,7 @@ if opt.augment == "flowers102":
 		iaa.Sometimes(0.5, iaa.AdditiveGaussianNoise(scale=(0, 0.035*255), per_channel=False)),
 		iaa.Sometimes(0.5, iaa.Multiply((0.9, 1.1), per_channel=False)),
 		iaa.Sometimes(0.5, iaa.ContrastNormalization((0.9, 1.1), per_channel=False)),
-		iaa.Sometimes(1.0, iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, rotate=(-15, 15), order=1, mode="symmetric"))
+		iaa.Sometimes(0.5, iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, rotate=(-15, 15), order=3, mode="symmetric"))
 	], random_order=True)
 	transform_list.append(util.ImgaugPytorchWrapper(seq))
 elif opt.augment == "cifar10":
@@ -203,10 +206,12 @@ elif opt.augment == "10kcats":
 	transform_list.append(transforms.RandomHorizontalFlip())
 	from imgaug import augmenters as iaa
 	seq = iaa.Sequential([
-		iaa.Sometimes(0.5, iaa.AdditiveGaussianNoise(scale=(0, 0.035*255), per_channel=False)),
+		#iaa.Sometimes(0.5, iaa.AdditiveGaussianNoise(scale=(0, 0.035*255), per_channel=False)),
+		#iaa.Sometimes(0.3, iaa.AdditiveGaussianNoise(scale=(0, 0.005*255), per_channel=False)),
 		iaa.Sometimes(0.5, iaa.Multiply((0.9, 1.1), per_channel=False)),
 		iaa.Sometimes(0.5, iaa.ContrastNormalization((0.9, 1.1), per_channel=False)),
-		iaa.Sometimes(0.75, iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, rotate=(-20, 20), order=1, mode="symmetric"))
+		#iaa.Sometimes(0.5, iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, rotate=(-20, 20), order=3, mode="symmetric"))
+		iaa.Sometimes(0.5, iaa.Affine(scale={"x": (0.9, 1.1), "y": (0.9, 1.1)}, rotate=(-15, 15), order=3, mode="symmetric"))
 	], random_order=True)
 	transform_list.append(util.ImgaugPytorchWrapper(seq))
 elif opt.augment == "lsun_churches":
@@ -291,13 +296,13 @@ else:
 				return el
 		get_data = CachedDataset(opt.nb_cache_total, opt.nb_cache_lists, opt.cache_p_drop)
 
-gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations)
+gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations, upscaling=opt.g_upscaling)
 print(gen)
 gen.cuda()
 testfunc = nn.MSELoss()
 
 if not opt.final_test:
-	dis = build_discriminator(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.norm)
+	dis = build_discriminator(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.norm, opt.d_dropout)
 	print(dis)
 	dis.cuda()
 	if opt.ls:

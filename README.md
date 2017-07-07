@@ -34,9 +34,14 @@ G-LIS with 3 LIS modules, trained on 120flowers (600k batches):
 ![120flowers, 80x80, 3 LIS modules](images/glis-exp10-riter3-120flowers-large.jpg?raw=true "120flowers, 80x80, 3 LIS module")
 
 
-G-LIS with 3 LIS modules, trained on 10kcats (700k batches):
+G-LIS with 1 LIS module, trained on 10kcats (600k batches, 3 layers instead of 4 in G and D, NN-upsampling, dropout before last layer in D):
 
-![10kcats, 64x64, 3 LIS modules](images/glis-exp12-riter3-10kcats-large.jpg?raw=true "10kcats, 64x64, 3 LIS modules")
+![10kcats, 64x64, 1 LIS module](images/glis-exp16-riter1-large.jpg?raw=true "10kcats, 64x64, 1 LIS module")
+
+
+Example interpolation, same model as before:
+
+![10kcats, 64x64, 1 LIS module, interpolation](images/glis-exp16-riter1-interpolation.jpg?raw=true "10kcats, 64x64, 1 LIS module, interpolation")
 
 
 G-LIS with 1 LIS module, trained on LSUN churches (500k batches):
@@ -73,6 +78,10 @@ Same training as above, but this time only the second image of each pair is show
 
 
 Similar to the previous video, but training was done on the 10kcats datasets at 64x64 with 3 LIS modules (showing the results of the last module).
+Note that this is not the exactly same model as for the images above. The eyes seem to have less artifacts here.
+This model used one more layer in G and D as well as two more LIS modules.
+One of these factors likely resulted in less structural artifacts.
+Due to aggressive cropping the training images ended up looking a bit blurry.
 
 [![Training on 10kcats 160x160 after](images/videos/glis_10kcats_160x160_only_after.jpg)](http://www.youtube.com/watch?v=16PP68-onwQ)
 

@@ -125,6 +125,9 @@ def main():
     parser.add_argument('--augment', default = 'none',
         help = 'set of augmentations to run on the input images')
 
+    parser.add_argument('--g_upscaling',  default='fractional',
+        help = 'upscaling method to use in G: fractional|nearest|bilinear')
+
     opt = parser.parse_args()
     print(opt)
 
@@ -417,7 +420,7 @@ class BackgroundSingleCheckpointImageGenerator(object):
         #random.seed(42)
         #torch.manual_seed(42)
 
-        gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations)
+        gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations, upscaling=opt.g_upscaling)
         if show_info:
             print("G:", gen)
         gen.cuda()

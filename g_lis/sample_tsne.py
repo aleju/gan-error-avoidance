@@ -83,6 +83,9 @@ def main():
     parser.add_argument('--nb_points', type = int, default = 17500,
         help = 'number of points to embed and plot via t-SNE')
 
+    parser.add_argument('--g_upscaling',  default='fractional',
+        help = 'upscaling method to use in G: fractional|nearest|bilinear')
+
     opt = parser.parse_args()
     print(opt)
 
@@ -105,7 +108,7 @@ def main():
             s = (s + 1) // 2
             opt.nlayer = opt.nlayer + 1
 
-    gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations)
+    gen = GeneratorLearnedInputSpace(opt.width, opt.height, opt.nfeature, opt.nlayer, opt.code_size, opt.norm, n_lis_layers=opt.r_iterations, upscaling=opt.g_upscaling)
     print(gen)
     gen.cuda()
     gen.load_state_dict(torch.load(opt.load_path_g))
