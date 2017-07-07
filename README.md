@@ -1,6 +1,6 @@
 # About
 
-This repository contains code for the paper "Learning to Avoid Errors in GANs by Manipulating Input Spaces".
+This repository contains code for the paper [(1707.00768) Learning to Avoid Errors in GANs by Manipulating Input Spaces](https://arxiv.org/abs/1707.00768).
 The basic idea of the paper is to distort the input space (i.e. the noise vectors) in a way that the image quality is improved.
 More intuitively, the generator is trained to understand its own weaknesses and allowed to simply evade input vectors that would result in bad quality -- though it is punished whenever it does that.
 The paper introduces LIS modules, which consist of residual fully connected layers and are placed at the beginning of the generator.
