@@ -97,7 +97,7 @@ Due to aggressive cropping the training images ended up looking a bit blurry.
 
 Basic architecture of LIS modules:
 
-![LIS modules](images/lis-module.jpg?raw=true "LIS module")
+![LIS modules](images/lis-modules.jpg?raw=true "LIS module")
 
 
 # Dependencies
